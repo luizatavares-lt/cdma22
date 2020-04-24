@@ -7,67 +7,65 @@ void main() => runApp(MaterialApp(
       debugShowCheckedModeBanner: false,
     ));
 
-class MyApp extends StatelessWidget {
-    Widget build(BuildContext context) {
-      return MaterialApp(
-        title: 'Clientes',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        home: MyHomePage(title: 'Clientes'),
-      );
-    }
-}
-
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  final String title;
-
+class MyApp extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _MyAppState createState() => _MyAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyAppState extends State<MyApp> {
   
-  List<dynamic> _clientes = [];
-
-  List<Widget> get _widgets =>
-    _clientes.map((cliente) => clientesWidget(cliente)).toList();
-
-    Widget clientesWidget(Cliente cliente) {
-    return Dismissible(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: FlatButton(
-          child: Row(
-            children: <Widget>[
-              Text(cliente.nome),
-              Icon(cliente.marcado == true
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked),
-            ],
-          ), onPressed: () {},
-        ),
-      ), key: null,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text("CADASTRO DE CLIENTES"),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () {
+              DBProvider.db.deleteAll();
+              setState(() {});
+            },
+          )
+        ],
       ),
-      body: Center(
-          child: ListView(
-        children: _widgets,
-      )),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add_circle_outline),
-        onPressed: () {
-          _addCliente(context);
+      body: FutureBuilder<List<Cliente>>(
+        future: DBProvider.db.getAllClientes(),
+        builder: (BuildContext context, AsyncSnapshot<List<Cliente>> snapshot) {
+          if (snapshot.hasData) {
+            return ListView.builder(
+              itemCount: snapshot.data.length,
+              itemBuilder: (BuildContext context, int index) {
+                Cliente item = snapshot.data[index];
+                return Dismissible(
+                  key: UniqueKey(),
+                  onDismissed: (direction) {
+                    DBProvider.db.deleteCliente(item.id);
+                  },
+                  child: ListTile(
+                    title: Text(item.nome + " " + item.sobrenome),
+                    leading: Text(item.id.toString()),
+                    trailing: Checkbox(
+                      onChanged: (bool value) {
+                        DBProvider.db.blockOrUnblock(item);
+                        setState(() {});
+                      },
+                      value: item.marcado,
+                    ),
+                  ),
+                );
+              },
+            );
+          } else {
+            return Center(child: CircularProgressIndicator());
+          }
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.add),
+        onPressed: (){
+          _addCliente(context);
+        } 
       ),
     );
   }
@@ -119,6 +117,7 @@ class _MyHomePageState extends State<MyHomePage> {
       },
     );
   }
+
   _salvarCliente() async {
     Cliente cliente = Cliente(
       nome: _clienteNome,
@@ -131,4 +130,11 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => _clienteSobrenome = '');
     Navigator.of(context).pop();
   }
+
+  @override
+  void initState() {
+    DBProvider.db.initDB();
+    super.initState();
+  }
+
 }
